@@ -1,0 +1,107 @@
+@import 'tailwindcss';
+
+/* ------------------------------------------------------------------
+   Design tokens — Pioneers Circle 2026 x HDFC ERGO
+   Single source of truth for colour, radii, shadows and motion.
+   Change a value here and it propagates through every component.
+------------------------------------------------------------------- */
+@theme {
+  /* Brand red (HDFC ERGO) */
+  --color-brand-50: #fff1f2;
+  --color-brand-100: #ffe0e2;
+  --color-brand-200: #ffc5c9;
+  --color-brand-300: #ff9ba3;
+  --color-brand-400: #fa6069;
+  --color-brand-500: #ef2f3c;
+  --color-brand-600: #e4032e;
+  --color-brand-700: #c10226;
+  --color-brand-800: #9e0620;
+  --color-brand-900: #830b20;
+
+  /* Parchment / cream — the event background family */
+  --color-cream-50: #fefaf1;
+  --color-cream-100: #fbf5e7;
+  --color-cream-200: #f5ecd8;
+  --color-cream-300: #ecdfc2;
+  --color-cream-400: #ddc9a1;
+
+  /* Heritage gold — Pioneers Circle accents */
+  --color-gold-300: #ddb977;
+  --color-gold-400: #c9a15a;
+  --color-gold-500: #b3873f;
+  --color-gold-600: #8f6a2e;
+
+  /* Compass navy — secondary accent from the mosaic artwork */
+  --color-navy-400: #3a5f9e;
+  --color-navy-500: #24447a;
+  --color-navy-600: #1b3159;
+
+  /* Neutral ink */
+  --color-ink-400: #6b6660;
+  --color-ink-500: #4a453f;
+  --color-ink-600: #2e2b27;
+  --color-ink-900: #14120f;
+
+  --font-sans: 'Poppins', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --radius-field: 1.125rem;
+  --radius-card: 1.5rem;
+
+  --shadow-soft: 0 1px 2px rgb(20 18 15 / 0.04), 0 8px 24px -12px rgb(20 18 15 / 0.18);
+  --shadow-card: 0 2px 4px rgb(20 18 15 / 0.04), 0 18px 40px -20px rgb(20 18 15 / 0.28);
+  --shadow-cta: 0 10px 24px -10px var(--color-brand-600);
+
+  --animate-fade-up: fade-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-pulse-ring: pulse-ring 1.8s ease-out infinite;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    opacity: 0.55;
+    transform: scale(0.85);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.35);
+  }
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-cream-100 text-ink-600 font-sans antialiased;
+    margin: 0;
+    min-height: 100dvh;
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-brand-600;
+  }
+
+  /* The design is a single, deliberately light theme — opt out of UA dark mode. */
+  :root {
+    color-scheme: light;
+  }
+}
+
+@layer components {
+  /* Card surface used by the form panel and result panels. */
+  .surface {
+    @apply bg-white/85 backdrop-blur-[2px] rounded-card shadow-card ring-1 ring-cream-300/70;
+  }
+}
