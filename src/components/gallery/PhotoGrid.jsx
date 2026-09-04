@@ -4,8 +4,20 @@ import { CheckIcon, RetryIcon } from '@/components/ui/Icons'
 import { cn } from '@/utils/cn'
 
 const LONG_PRESS_MS = 450
-/** Photos revealed per batch — an 80–100 shot result mounts in slices. */
-const PAGE_SIZE = 24
+
+/*
+ * A 100–200 photo result is mounted in slices rather than all at once.
+ *
+ * The batch is small and the trigger sits close to the viewport on purpose: a
+ * large lookahead lets a fast scroll fire several batches back to back, which
+ * mounts a hundred <img> elements in one frame and produces exactly the stall
+ * this is meant to avoid. One screen of lookahead keeps each step cheap and
+ * lets the loader actually be seen.
+ */
+const PAGE_SIZE = 12
+const LOOKAHEAD = '200px'
+/** Lets a flung scroll settle before mounting, so momentum stays smooth. */
+const SETTLE_MS = 120
 
 const MOVE_TOLERANCE = 10
 
@@ -86,6 +98,12 @@ function PhotoTile({ photo, index, selectMode, selected, onOpen, onLongPress, on
           alt={`Event photo ${index + 1}`}
           loading="lazy"
           decoding="async"
+          /*
+           * The API returns no separate thumbnail, so each tile decodes a
+           * full-size JPEG. Low priority keeps those requests behind the first
+           * screenful and off the critical path.
+           */
+          fetchPriority={index < PAGE_SIZE ? 'auto' : 'low'}
           draggable={false}
           onLoad={() => setStatus('loaded')}
           onError={() => setStatus('error')}
@@ -130,6 +148,18 @@ function PhotoTile({ photo, index, selectMode, selected, onOpen, onLongPress, on
 
 const MemoTile = memo(PhotoTile)
 
+/** Grey placeholder tiles occupying the space the next batch will fill. */
+function SkeletonTiles({ count }) {
+  return Array.from({ length: count }, (_, i) => (
+    <div
+      key={`skeleton-${i}`}
+      aria-hidden
+      className="aspect-3/4 animate-pulse rounded-2xl bg-cream-200 ring-1 ring-cream-300"
+      style={{ animationDelay: `${(i % 4) * 90}ms` }}
+    />
+  ))
+}
+
 export function PhotoGrid({ photos, selectMode, selected, onOpen, onLongPress, onToggle }) {
   const [visible, setVisible] = useState(() => Math.min(PAGE_SIZE, photos.length))
   const [renderedFor, setRenderedFor] = useState(photos)
@@ -142,23 +172,37 @@ export function PhotoGrid({ photos, selectMode, selected, onOpen, onLongPress, o
     setVisible(Math.min(PAGE_SIZE, photos.length))
   }
 
+  const remaining = photos.length - visible
+
   // Reveal the next slice as the sentinel nears the viewport, so the first
   // paint stays fast no matter how many photos matched.
   useEffect(() => {
     const node = sentinelRef.current
-    if (!node || visible >= photos.length) return
+    if (!node || remaining <= 0) return
 
+    let timer = null
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) {
-          setVisible((current) => Math.min(current + PAGE_SIZE, photos.length))
+        if (!entry.isIntersecting) {
+          // Scrolled back out before settling — drop the pending batch.
+          clearTimeout(timer)
+          timer = null
+          return
         }
+        // Mount on the next idle moment so a fast flick does not decode a
+        // batch mid-gesture; the skeletons cover the wait.
+        timer = setTimeout(() => {
+          setVisible((current) => Math.min(current + PAGE_SIZE, photos.length))
+        }, SETTLE_MS)
       },
-      { rootMargin: '600px' },
+      { rootMargin: LOOKAHEAD },
     )
     observer.observe(node)
-    return () => observer.disconnect()
-  }, [visible, photos.length])
+    return () => {
+      clearTimeout(timer)
+      observer.disconnect()
+    }
+  }, [remaining, photos.length])
 
   return (
     <>
@@ -175,12 +219,23 @@ export function PhotoGrid({ photos, selectMode, selected, onOpen, onLongPress, o
             onToggle={onToggle}
           />
         ))}
+
+        {/* Placeholders stand in for the next batch so the grid keeps its
+            shape and the scrollbar does not jump as photos arrive. */}
+        {remaining > 0 && <SkeletonTiles count={Math.min(PAGE_SIZE, remaining)} />}
       </div>
 
-      {visible < photos.length && (
-        <div ref={sentinelRef} className="grid place-items-center py-8 text-sm text-ink-400">
+      {remaining > 0 && (
+        <div
+          ref={sentinelRef}
+          role="status"
+          aria-live="polite"
+          className="grid place-items-center py-8 text-sm text-ink-400"
+        >
           <span className="size-5 animate-spin rounded-full border-2 border-cream-400 border-t-brand-600" />
-          <span className="mt-2">Loading more photos…</span>
+          <span className="mt-2">
+            Loading {Math.min(PAGE_SIZE, remaining)} more · {visible} of {photos.length}
+          </span>
         </div>
       )}
     </>
