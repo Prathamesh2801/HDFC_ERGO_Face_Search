@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useEventNavigate } from '@/routes/useEventNavigate'
 import toast from 'react-hot-toast'
 
+import { BlockedDownloadSheet } from '@/components/gallery/BlockedDownloadSheet'
 import { DownloadProgress } from '@/components/gallery/DownloadProgress'
 import { Lightbox } from '@/components/gallery/Lightbox'
 import { PhotoGrid } from '@/components/gallery/PhotoGrid'
@@ -28,6 +29,8 @@ export default function ResultsPage() {
   const [selectMode, setSelectMode] = useState(false)
   const [selected, setSelected] = useState(() => new Set())
   const [progress, setProgress] = useState(null)
+  // Set when the photo host blocks cross-origin reads and only tabs remain.
+  const [blockedPhotos, setBlockedPhotos] = useState(null)
   const abortRef = useRef(null)
 
   // Deep-linking straight to /results has nothing to show — send them to register.
@@ -85,12 +88,17 @@ export default function ResultsPage() {
       if (list.length === 1) {
         window.open(list[0].url, '_blank', 'noopener')
         toast('Opened in a new tab — long press the photo to save it', { icon: '💾', duration: 6000 })
-      } else {
-        toast.error(
-          'Saving in bulk is blocked by the photo server. Tap a photo, then use the save button.',
-          { duration: 7000 },
-        )
+        return
       }
+
+      /*
+       * The photo host serves images without an Access-Control-Allow-Origin
+       * header, so their bytes cannot be read here — which rules out zipping,
+       * sharing and blob downloads alike. Opening tabs is the only thing left,
+       * and a burst of them is blocked as a popup, so the set is handed over a
+       * few at a time with the reason stated plainly.
+       */
+      setBlockedPhotos(list)
       return
     }
 
@@ -126,6 +134,12 @@ export default function ResultsPage() {
         // Dismissing the sheet cancels the rest — the user asked to stop.
         if (outcome === 'cancelled') break
         if (outcome === 'unavailable') {
+          sheetUnavailable = true
+          break
+        }
+        if (outcome === 'gesture-expired') {
+          // Safari dropped the gesture while the photos downloaded. The bytes
+          // are wasted, so fall through to the ZIP rather than re-fetching.
           sheetUnavailable = true
           break
         }
@@ -293,6 +307,10 @@ export default function ResultsPage() {
           onClear={exitSelect}
           onDownload={downloadSelected}
         />
+      )}
+
+      {blockedPhotos && (
+        <BlockedDownloadSheet photos={blockedPhotos} onClose={() => setBlockedPhotos(null)} />
       )}
 
       {busy && (

@@ -98,11 +98,6 @@ export async function downloadPhoto(photo, index, fullName, signal) {
 export async function sharePhotos({ photos, fullName, onProgress, signal }) {
   if (!canShareFiles()) return 'unavailable'
 
-  /*
-   * navigator.share must be reached while the browser still considers a user
-   * gesture active. Fetching dozens of images first blows that budget and
-   * Safari throws NotAllowedError, so callers share in bounded batches.
-   */
   const files = []
   for (const [index, photo] of photos.entries()) {
     if (signal?.aborted) return 'cancelled'
@@ -122,8 +117,57 @@ export async function sharePhotos({ photos, fullName, onProgress, signal }) {
     await navigator.share({ files, title: 'My event photos' })
     return 'shared'
   } catch (error) {
-    // The user dismissing the sheet is a cancel, not a failure.
-    return error?.name === 'AbortError' ? 'cancelled' : 'unavailable'
+    // Dismissing the sheet is a cancel. NotAllowedError means the user gesture
+    // expired while the images were downloading — the caller retries that with
+    // `sharePreparedFiles` from a fresh tap.
+    if (error?.name === 'AbortError') return 'cancelled'
+    if (error?.name === 'NotAllowedError') return 'gesture-expired'
+    return 'unavailable'
+  }
+}
+
+/**
+ * Fetches the photos without sharing them, so the bytes are ready in advance.
+ *
+ * @returns {Promise<{ files: File[], failed: number, cancelled: boolean }>}
+ */
+export async function preparePhotoFiles({ photos, fullName, onProgress, signal }) {
+  const files = []
+  let failed = 0
+
+  for (const [index, photo] of photos.entries()) {
+    if (signal?.aborted) return { files, failed, cancelled: true }
+    try {
+      const blob = await fetchBlob(photo.url, signal)
+      files.push(new File([blob], downloadName(photo, index, fullName), { type: blob.type }))
+    } catch (error) {
+      if (error?.name === 'AbortError') return { files, failed, cancelled: true }
+      failed += 1
+    }
+    onProgress?.({ done: index + 1, total: photos.length, failed })
+  }
+
+  return { files, failed, cancelled: false }
+}
+
+/**
+ * Opens the share sheet for files that are already in memory.
+ *
+ * Kept separate from fetching on purpose: `navigator.share` only works while a
+ * user gesture is still active, and downloading dozens of photos first uses
+ * that budget up. Calling this straight out of a tap handler is what makes the
+ * sheet appear reliably on iOS.
+ */
+export async function sharePreparedFiles(files) {
+  if (!canShareFiles() || !files.length) return 'unavailable'
+  if (!navigator.canShare({ files })) return 'unavailable'
+
+  try {
+    await navigator.share({ files, title: 'My event photos' })
+    return 'shared'
+  } catch (error) {
+    if (error?.name === 'AbortError') return 'cancelled'
+    return 'unavailable'
   }
 }
 

@@ -8,16 +8,23 @@ const LONG_PRESS_MS = 450
 /*
  * A 100–200 photo result is mounted in slices rather than all at once.
  *
- * The batch is small and the trigger sits close to the viewport on purpose: a
- * large lookahead lets a fast scroll fire several batches back to back, which
- * mounts a hundred <img> elements in one frame and produces exactly the stall
- * this is meant to avoid. One screen of lookahead keeps each step cheap and
- * lets the loader actually be seen.
+ * Two competing costs: mounting too many <img> at once stalls the frame, while
+ * mounting too late leaves the reader staring at placeholders. Small batches
+ * keep each step cheap, and a generous lookahead starts them well before the
+ * tiles are on screen, so the images are decoded by the time they arrive.
  */
-const PAGE_SIZE = 12
-const LOOKAHEAD = '200px'
-/** Lets a flung scroll settle before mounting, so momentum stays smooth. */
-const SETTLE_MS = 120
+const PAGE_SIZE = 8
+/** Roughly two screens of runway, so a fast scroll still lands on real photos. */
+const LOOKAHEAD = '1200px'
+
+/**
+ * Images already requested but not yet mounted.
+ *
+ * The browser starts fetching and decoding as soon as an Image() has a src, so
+ * warming the next batches off-screen means a tile usually paints immediately
+ * on mount instead of showing a placeholder first.
+ */
+const PREFETCH_AHEAD = 24
 
 const MOVE_TOLERANCE = 10
 
@@ -180,29 +187,34 @@ export function PhotoGrid({ photos, selectMode, selected, onOpen, onLongPress, o
     const node = sentinelRef.current
     if (!node || remaining <= 0) return
 
-    let timer = null
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (!entry.isIntersecting) {
-          // Scrolled back out before settling — drop the pending batch.
-          clearTimeout(timer)
-          timer = null
-          return
-        }
-        // Mount on the next idle moment so a fast flick does not decode a
-        // batch mid-gesture; the skeletons cover the wait.
-        timer = setTimeout(() => {
+        // Mount immediately: the sentinel sits a screen or two below the fold,
+        // so there is runway to decode before these tiles are actually seen.
+        // Delaying here is what left fast scrolling on blank placeholders.
+        if (entry.isIntersecting) {
           setVisible((current) => Math.min(current + PAGE_SIZE, photos.length))
-        }, SETTLE_MS)
+        }
       },
       { rootMargin: LOOKAHEAD },
     )
     observer.observe(node)
-    return () => {
-      clearTimeout(timer)
-      observer.disconnect()
-    }
+    return () => observer.disconnect()
   }, [remaining, photos.length])
+
+  // Warm the images just beyond what is mounted so they are decoded on arrival.
+  useEffect(() => {
+    if (remaining <= 0) return
+    const warm = photos.slice(visible, visible + PREFETCH_AHEAD).map((photo) => {
+      const image = new Image()
+      image.decoding = 'async'
+      image.fetchPriority = 'low'
+      image.src = photo.thumbnailUrl
+      return image
+    })
+    // Dropping the src lets the browser abandon anything still in flight.
+    return () => warm.forEach((image) => { image.src = '' })
+  }, [visible, remaining, photos])
 
   return (
     <>

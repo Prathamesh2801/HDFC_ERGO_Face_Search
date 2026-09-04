@@ -13,6 +13,9 @@ dist.zip
 dist-ssr
 *.local
 
+# Local reference material, not part of the app
+ref/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
