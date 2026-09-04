@@ -6,12 +6,16 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "zip": "bestzip dist.zip dist/*",
+    "build:zip": "npm run build && npm run zip",
     "lint": "eslint .",
     "preview": "vite preview"
   },
   "dependencies": {
+    "client-zip": "^2.5.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "react-hot-toast": "^2.6.0",
     "react-router-dom": "^7.18.3"
   },
   "devDependencies": {

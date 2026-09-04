@@ -4,23 +4,38 @@
  */
 export const appConfig = {
   api: {
-    /** Base URL of the face-detect / face-search backend, no trailing slash. */
-    baseUrl: '',
+    /** Base URL of the face-search backend, no trailing slash. */
+    baseUrl: 'https://facesearch.theeventpics.com/API',
 
     /** Endpoint paths, relative to `baseUrl`. */
     endpoints: {
-      faceSearch: '/api/face-search',
+      /** Registers the attendee and returns every photo they appear in. */
+      registerAndSearch: '/User/user.php',
     },
 
-    /** Abort a request after this long. */
-    timeoutMs: 45000,
+    /**
+     * Generous: the server runs face detection across the whole event library
+     * and a slow mobile upload sits inside this budget too.
+     */
+    timeoutMs: 120000,
   },
 
-  upload: {
-    maxImageBytes: 8 * 1024 * 1024,
-    acceptedTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'],
+  /**
+   * The backend owns file validation (type, size, compression). The client only
+   * checks that something was actually picked.
+   */
+  search: {
+    /** URL param carrying the event, e.g. /#/?event=Test */
+    eventParam: 'event',
+    /** Used when the link has no event param — keeps local dev clickable. */
+    fallbackEventId: '',
+    /**
+     * The API requires Email_ID and Phone_No; this app collects neither.
+     * Email accepts the literal "null", but Phone_No is format-validated and
+     * must be digits — and the server names the stored upload after it, so each
+     * device gets its own generated number instead of a shared constant.
+     */
+    placeholderEmail: 'null',
+    phoneDigits: 10,
   },
 }
-
-/** With no base URL configured the app runs against the built-in mock service. */
-export const useMockApi = appConfig.api.baseUrl.trim() === ''

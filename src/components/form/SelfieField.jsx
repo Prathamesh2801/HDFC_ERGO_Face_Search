@@ -5,12 +5,13 @@ import { cn } from '@/utils/cn'
 import { formatBytes, validateImage } from '@/utils/file'
 
 /**
- * Selfie input driven by a single native file input.
+ * Selfie input driven by the device's own camera app.
  *
- * `capture="user"` makes Android and iOS hand off to the phone's own camera app
- * (front lens) instead of an in-page getUserMedia preview; desktop browsers
- * ignore the attribute and fall back to the file picker. Camera is the only
- * source — there is deliberately no gallery/upload path.
+ * `capture="user"` asks for the front lens. Phones treat it as a hint — some
+ * open whichever lens the camera app used last — which is accepted here: the
+ * native camera gives autofocus, exposure and full sensor resolution, and a
+ * sharp rear-camera shot matches better than a soft in-page capture. Camera is
+ * the only source; there is deliberately no gallery path.
  */
 export function SelfieField({ label, value, previewUrl, onChange, error }) {
   const cameraInputRef = useRef(null)
@@ -23,11 +24,18 @@ export function SelfieField({ label, value, previewUrl, onChange, error }) {
 
     const message = validateImage(file)
     setLocalError(message)
-    if (!message) onChange(file)
+    if (message) return
+
+    // The camera file is passed through untouched: browsers honour the EXIF
+    // orientation when displaying it, and the server reads the same tag.
+    onChange(file)
   }
 
   const shownError = error ?? localError
-  const openCamera = () => cameraInputRef.current?.click()
+  const openCamera = () => {
+    setLocalError(null)
+    cameraInputRef.current?.click()
+  }
 
   return (
     <div className="space-y-2">

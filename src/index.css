@@ -83,6 +83,17 @@
     -webkit-tap-highlight-color: transparent;
   }
 
+  /*
+   * iOS shows a "Save Image / Copy" callout and starts a drag on a long press,
+   * which fights the gallery's own long-press-to-select gesture. The lightbox
+   * re-enables saving deliberately through its own button.
+   */
+  img {
+    -webkit-touch-callout: none;
+    -webkit-user-drag: none;
+    user-select: none;
+  }
+
   body {
     @apply bg-cream-100 text-ink-600 font-sans antialiased;
     margin: 0;

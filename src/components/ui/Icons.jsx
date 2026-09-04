@@ -75,3 +75,26 @@ export const GalleryIcon = (props) => (
     <path d="m4.5 17 4.6-4.3a1.8 1.8 0 0 1 2.5 0l4.1 4.3M14.5 14l1.6-1.5a1.8 1.8 0 0 1 2.5 0l1.9 1.8" />
   </svg>
 )
+
+export const TrashIcon = (props) => (
+  <svg {...base} {...props}>
+    <path d="M4.5 6.5h15M9.5 6.5V5a1.5 1.5 0 0 1 1.5-1.5h2A1.5 1.5 0 0 1 14.5 5v1.5" />
+    <path d="M6.5 6.5 7.4 19a1.5 1.5 0 0 0 1.5 1.4h6.2a1.5 1.5 0 0 0 1.5-1.4l.9-12.5" />
+    <path d="M10.5 10v6.5M13.5 10v6.5" />
+  </svg>
+)
+
+export const SelectAllIcon = (props) => (
+  <svg {...base} {...props}>
+    <rect x="8.5" y="3.5" width="12" height="12" rx="2.5" />
+    <path d="M15.5 20.5h-9a3 3 0 0 1-3-3v-9" />
+    <path d="m11.5 9.4 1.9 1.9 3.6-3.7" />
+  </svg>
+)
+
+export const UserIcon = (props) => (
+  <svg {...base} {...props}>
+    <circle cx="12" cy="8.5" r="3.8" />
+    <path d="M4.6 20a7.4 7.4 0 0 1 14.8 0" />
+  </svg>
+)

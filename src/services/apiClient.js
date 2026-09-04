@@ -39,22 +39,37 @@ export async function request(path, { method = 'GET', body, headers, signal, tim
       signal: controller.signal,
       headers: {
         Accept: 'application/json',
+        // Never set Content-Type for FormData — the browser adds the multipart
+        // boundary, and overriding it makes PHP parse an empty $_POST/$_FILES.
         ...(isFormData || body === undefined ? {} : { 'Content-Type': 'application/json' }),
         ...headers,
       },
       body: isFormData ? body : body === undefined ? undefined : JSON.stringify(body),
     })
 
-    const payload = await response
-      .clone()
-      .json()
-      .catch(() => null)
+    // A PHP warning or fatal can precede the JSON, so parse defensively and
+    // keep the raw text around for the error path.
+    const text = await response.text()
+    let payload = null
+    try {
+      payload = JSON.parse(text)
+    } catch {
+      payload = null
+    }
 
     if (!response.ok) {
-      throw new ApiError(payload?.message || friendlyMessage(response.status), {
+      throw new ApiError(payload?.Message || payload?.message || friendlyMessage(response.status), {
         status: response.status,
-        code: payload?.code ?? 'http_error',
-        details: payload,
+        code: 'http_error',
+        details: payload ?? text,
+      })
+    }
+
+    if (payload === null) {
+      throw new ApiError('The server sent an unexpected response. Please try again.', {
+        status: response.status,
+        code: 'bad_payload',
+        details: text.slice(0, 500),
       })
     }
 
@@ -62,9 +77,9 @@ export async function request(path, { method = 'GET', body, headers, signal, tim
   } catch (error) {
     if (error instanceof ApiError) throw error
     if (error.name === 'AbortError') {
-      throw new ApiError('The request took too long. Please try again.', {
-        code: 'timeout',
-      })
+      // A caller-driven cancel must stay a cancel; only our timer means timeout.
+      if (signal?.aborted) throw error
+      throw new ApiError('The search took too long. Please try again.', { code: 'timeout' })
     }
     throw new ApiError(friendlyMessage(0), { code: 'network_error', details: error.message })
   } finally {

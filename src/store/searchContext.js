@@ -1,6 +1,5 @@
 import { createContext, useContext } from 'react'
 
-/** @type {import('react').Context<null | ReturnType<typeof import('./SearchProvider').useSearchValue>>} */
 export const SearchContext = createContext(null)
 
 export const useSearch = () => {

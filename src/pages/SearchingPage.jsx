@@ -1,19 +1,37 @@
-import { useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useEventNavigate } from '@/routes/useEventNavigate'
 
-import { Button } from '@/components/ui/Button'
 import { Alert } from '@/components/ui/Alert'
+import { Button } from '@/components/ui/Button'
 import { copy } from '@/config/brand'
 import { SearchStatus, useSearch } from '@/store/searchContext'
 
+/** Rotated while waiting so a long search still feels like it is progressing. */
+const STAGES = [
+  'Uploading your selfie…',
+  'Detecting your face…',
+  'Matching against the event gallery…',
+  'Almost there — collecting your photos…',
+]
+
 export default function SearchingPage() {
-  const navigate = useNavigate()
-  const { status, fullName, previewUrl, error } = useSearch()
+  const navigate = useEventNavigate()
+  const { status, fullName, previewUrl, error, reset } = useSearch()
+  const [stage, setStage] = useState(0)
 
   useEffect(() => {
     if (status === SearchStatus.Idle) navigate('/', { replace: true })
     if (status === SearchStatus.Success) navigate('/results', { replace: true })
   }, [status, navigate])
+
+  useEffect(() => {
+    if (status !== SearchStatus.Searching) return
+    const timer = setInterval(
+      () => setStage((current) => Math.min(current + 1, STAGES.length - 1)),
+      4000,
+    )
+    return () => clearInterval(timer)
+  }, [status])
 
   const failed = status === SearchStatus.Error
 
@@ -47,10 +65,22 @@ export default function SearchingPage() {
           : `${fullName ? `${fullName}, ` : ''}${copy.searching.subtitle}`}
       </p>
 
+      {!failed && (
+        <p key={stage} className="mt-4 animate-fade-up text-sm font-medium text-ink-400">
+          {STAGES[stage]}
+        </p>
+      )}
+
       {failed && (
         <div className="mt-6 w-full max-w-sm space-y-4">
           <Alert>{error}</Alert>
-          <Button fullWidth onClick={() => navigate('/', { replace: true })}>
+          <Button
+            fullWidth
+            onClick={() => {
+              reset()
+              navigate('/', { replace: true })
+            }}
+          >
             Try again
           </Button>
         </div>
